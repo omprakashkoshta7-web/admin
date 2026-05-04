@@ -1,4 +1,4 @@
-import { CheckCircle, DollarSign, Download, RefreshCw, RotateCcw, Search } from "lucide-react";
+import { AlertTriangle, CheckCircle, DollarSign, Download, RefreshCw, RotateCcw, Search, X, IndianRupee } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { useAsync } from "../../hooks/useAsync";
 import { getAdminReports, getAdminOrders, processAdminRefund } from "../../api/admin";
@@ -15,6 +15,8 @@ export default function RefundsPage() {
   const [errorMessage, setErrorMessage] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [modalError, setModalError] = useState("");
 
   const { data, loading, refetch } = useAsync(() => getAdminReports(), {}, []);
   const { data: refundedOrders, loading: loadingRefunds, refetch: refetchRefunds } = useAsync(
@@ -87,18 +89,27 @@ export default function RefundsPage() {
       setErrorMessage("Enter a valid refund amount.");
       return;
     }
+    // Validation passed — open confirm modal
+    setErrorMessage("");
+    setModalError("");
+    setShowConfirmModal(true);
+  };
+
+  const handleConfirmRefund = async () => {
+    const amount = Number(form.amount);
     try {
       setSubmitting(true);
-      setErrorMessage("");
+      setModalError("");
       setSuccessMessage("");
       await processAdminRefund(form.orderId, { customerId: form.customerId, amount, reason: form.reason || undefined });
+      setShowConfirmModal(false);
       setSuccessMessage("Refund processed successfully.");
       setForm(emptyForm);
       setSelectedOrderId(null);
       refetch();
       refetchRefunds();
     } catch (error: any) {
-      setErrorMessage(error?.message || "Failed to process refund.");
+      setModalError(error?.message || "Failed to process refund.");
     } finally {
       setSubmitting(false);
     }
@@ -372,6 +383,113 @@ export default function RefundsPage() {
           <div className="mt-4 text-center py-8 text-gray-500">No refunded orders found</div>
         )}
       </div>
+
+      {/* ── Refund Confirmation Modal ── */}
+      {showConfirmModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-gray-100">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center"
+                  style={{ backgroundColor: ADMIN_COLORS.warningBg }}>
+                  <RotateCcw size={18} style={{ color: ADMIN_COLORS.warning }} />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-gray-900">Confirm Refund</h3>
+                  <p className="text-xs text-gray-500 mt-0.5">Review details before processing</p>
+                </div>
+              </div>
+              <button
+                onClick={() => { setShowConfirmModal(false); setModalError(""); }}
+                className="p-2 rounded-xl hover:bg-gray-100 transition"
+              >
+                <X size={16} className="text-gray-400" />
+              </button>
+            </div>
+
+            {/* Refund Summary */}
+            <div className="px-6 py-5 space-y-3">
+
+              {/* Amount — big highlight */}
+              <div className="flex items-center justify-between p-4 rounded-2xl"
+                style={{ backgroundColor: ADMIN_COLORS.warningBg }}>
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wide" style={{ color: ADMIN_COLORS.warning }}>Refund Amount</p>
+                  <p className="text-3xl font-black mt-0.5" style={{ color: ADMIN_COLORS.warning }}>
+                    ₹{Number(form.amount).toLocaleString()}
+                  </p>
+                </div>
+                <IndianRupee size={36} style={{ color: ADMIN_COLORS.warning, opacity: 0.3 }} />
+              </div>
+
+              {/* Details rows */}
+              <div className="space-y-2">
+                {[
+                  { label: "Order ID", value: form.orderId.slice(-12), mono: true },
+                  { label: "Customer ID", value: form.customerId, mono: true },
+                  { label: "Reason", value: form.reason || "Not specified", mono: false },
+                ].map(({ label, value, mono }) => (
+                  <div key={label} className="flex items-center justify-between py-2.5 px-3 rounded-xl bg-gray-50">
+                    <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">{label}</span>
+                    <span className={`text-sm font-semibold text-gray-900 max-w-[200px] truncate text-right ${mono ? "font-mono" : ""}`}>
+                      {value}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Warning note */}
+              <div className="flex items-start gap-2.5 p-3 rounded-xl border"
+                style={{ backgroundColor: ADMIN_COLORS.infoBg, borderColor: ADMIN_COLORS.infoBorder }}>
+                <AlertTriangle size={14} style={{ color: ADMIN_COLORS.info }} className="mt-0.5 flex-shrink-0" />
+                <p className="text-xs" style={{ color: ADMIN_COLORS.info }}>
+                  Refund amount will be credited to the customer's wallet immediately. This action cannot be undone.
+                </p>
+              </div>
+
+              {/* Modal error */}
+              {modalError && (
+                <div className="flex items-center gap-2 p-3 rounded-xl border"
+                  style={{ backgroundColor: ADMIN_COLORS.errorBg, borderColor: ADMIN_COLORS.errorBorder }}>
+                  <AlertTriangle size={14} style={{ color: ADMIN_COLORS.error }} />
+                  <p className="text-sm font-semibold" style={{ color: ADMIN_COLORS.error }}>{modalError}</p>
+                </div>
+              )}
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-3 px-6 pb-6">
+              <button
+                onClick={() => { setShowConfirmModal(false); setModalError(""); }}
+                disabled={submitting}
+                className="flex-1 py-2.5 rounded-xl border-2 border-gray-200 text-sm font-bold text-gray-600 hover:bg-gray-50 transition disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmRefund}
+                disabled={submitting}
+                className="flex-1 py-2.5 rounded-xl text-white text-sm font-bold transition disabled:opacity-50 flex items-center justify-center gap-2"
+                style={{ backgroundColor: ADMIN_COLORS.warning }}
+              >
+                {submitting ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    <RotateCcw size={14} />
+                    Confirm Refund
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
