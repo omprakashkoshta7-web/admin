@@ -30,7 +30,8 @@ export default function PlatformPage() {
   const currentUser = (() => {
     try { return JSON.parse(localStorage.getItem('admin_user') || '{}'); } catch { return {}; }
   })();
-  const isSuperAdmin = currentUser?.role === 'super_admin';
+  // Allow admin, super_admin, superadmin — block only staff/viewer roles
+  const isSuperAdmin = ['admin', 'super_admin', 'superadmin'].includes(currentUser?.role?.toLowerCase?.() || '');
 
   // Available cities for pause control
   const availableCities = [
