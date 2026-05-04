@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Download, FileText, BookOpen, Shield, Lock, TrendingUp, ShoppingCart, BarChart2, RefreshCw, Calendar, User, Tag, Gift, ChevronDown } from "lucide-react";
+import { Download, FileText, BookOpen, Shield, Lock, TrendingUp, ShoppingCart, BarChart2, RefreshCw, Calendar, User, Tag, Gift } from "lucide-react";
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip,
   ResponsiveContainer, CartesianGrid, PieChart, Pie, Cell
@@ -200,9 +200,6 @@ export default function ReportsPage() {
   };
 
   // Legacy local exports (kept for fallback)
-  const exportOrdersReport = () => localExportFallback('orders');
-  const exportRevenueReport = () => localExportFallback('revenue');
-  const exportInvoices = () => localExportFallback('invoices');
   const exportAuditLogs = () => localExportFallback('audit_logs');
 
   if (reportsLoading) {
