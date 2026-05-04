@@ -230,16 +230,20 @@ export default function CategoriesPage() {
       return;
     }
     const slug = form.slug || form.name.toLowerCase().replace(/\s+/g, "-");
-    
+
+    // Strip base64 images from payload — backend can't handle large payloads
+    const safeImage = form.image && form.image.startsWith('http') ? form.image : '';
+    const safeForm = { ...form, slug, image: safeImage };
+
     try {
       setLoading(true);
-      console.log('Saving category:', { ...form, slug });
-      
+      console.log('Saving category:', safeForm);
+
       if (editId) {
-        const updated = await updateProductCategory(editId, { ...form, slug });
+        const updated = await updateProductCategory(editId, safeForm);
         console.log('Category updated:', updated);
       } else {
-        const created = await createProductCategory({ ...form, slug });
+        const created = await createProductCategory(safeForm);
         console.log('Category created:', created);
       }
       

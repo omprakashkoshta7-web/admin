@@ -160,7 +160,8 @@ export default function ProductsPage() {
         unit: form.unit,
         description: form.description,
         flowType: form.flowType,
-        ...(form.imageUrl ? { images: [form.imageUrl], thumbnail: form.imageUrl } : {}),
+        // Only send image URL if it's a real http URL (not base64) to avoid 413
+        ...(form.imageUrl && form.imageUrl.startsWith('http') ? { images: [form.imageUrl], thumbnail: form.imageUrl } : {}),
       };
 
       // Ensure flowType matches the selected category's flowType (server requires this)
