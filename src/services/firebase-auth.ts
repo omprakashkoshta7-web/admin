@@ -11,7 +11,7 @@ export interface AdminUser {
   uid: string;
   email: string;
   displayName?: string;
-  role: 'admin' | 'staff';
+  role: 'admin' | 'super_admin' | 'staff';
   permissions: string[];
 }
 
@@ -22,7 +22,7 @@ type VerifyResponse = {
     firebaseUid?: string;
     email: string;
     name?: string;
-    role: 'admin' | 'staff' | string;
+    role: 'admin' | 'super_admin' | 'staff' | string;
     staffProfile?: {
       permissions?: string[];
     };
@@ -33,7 +33,7 @@ const mapAdminUser = (user: VerifyResponse['user']): AdminUser => ({
   uid: user.firebaseUid || user._id,
   email: user.email || '',
   displayName: user.name || undefined,
-  role: user.role === 'staff' ? 'staff' : 'admin',
+  role: user.role === 'staff' ? 'staff' : user.role === 'super_admin' ? 'super_admin' : 'admin',
   permissions: user.staffProfile?.permissions || [],
 });
 
@@ -59,7 +59,7 @@ export const loginWithFirebase = async (
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${firebaseToken}`,
       },
-      body: JSON.stringify({ role: 'admin' }),
+      body: JSON.stringify({ role: 'super_admin' }),
     });
 
     if (!response.ok) {
@@ -89,7 +89,7 @@ export const loginWithFirebase = async (
       throw new Error('Invalid user data - role is missing');
     }
 
-    if (user.role !== 'admin' && user.role !== 'staff') {
+    if (user.role !== 'admin' && user.role !== 'staff' && user.role !== 'super_admin') {
       await signOut(auth);
       throw new Error('This Firebase account is not approved for admin access');
     }
@@ -151,7 +151,7 @@ export const getCurrentUser = (): Promise<AdminUser | null> => {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${firebaseToken}`,
           },
-          body: JSON.stringify({ role: 'admin' }),
+          body: JSON.stringify({ role: 'super_admin' }),
         });
 
         if (!response.ok) {
@@ -167,7 +167,7 @@ export const getCurrentUser = (): Promise<AdminUser | null> => {
         const backendToken = responseData?.token;
         const user = responseData?.user;
 
-        if (!backendToken || !user || !user.role || (user.role !== 'admin' && user.role !== 'staff')) {
+        if (!backendToken || !user || !user.role || (user.role !== 'admin' && user.role !== 'staff' && user.role !== 'super_admin')) {
           clearAuthToken();
           localStorage.removeItem('admin_user');
           resolve(null);
