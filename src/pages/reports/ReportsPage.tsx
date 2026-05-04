@@ -199,8 +199,6 @@ export default function ReportsPage() {
     window.URL.revokeObjectURL(url);
   };
 
-  // Legacy local exports (kept for fallback)
-  const exportAuditLogs = () => localExportFallback('audit_logs');
 
   if (reportsLoading) {
     return (
