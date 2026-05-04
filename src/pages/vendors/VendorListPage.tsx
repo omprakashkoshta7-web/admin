@@ -1149,19 +1149,72 @@ export default function VendorListPage() {
                   <p className="text-sm text-gray-600">
                     Set vendor priority level (1-10). Higher priority vendors get orders first.
                   </p>
+
+                  {/* Quick Preset Buttons */}
                   <div>
-                    <label className="block text-xs font-bold text-gray-600 mb-2">Priority Level (1-10)</label>
+                    <label className="block text-xs font-bold text-gray-600 mb-2 uppercase tracking-wide">Quick Select</label>
+                    <div className="grid grid-cols-5 gap-2">
+                      {[
+                        { label: "1", sub: "Lowest", val: 1 },
+                        { label: "3", sub: "Low", val: 3 },
+                        { label: "5", sub: "Medium", val: 5 },
+                        { label: "7", sub: "High", val: 7 },
+                        { label: "10", sub: "Highest", val: 10 },
+                      ].map(({ label, sub, val }) => (
+                        <button
+                          key={val}
+                          type="button"
+                          onClick={() => setPriorityLevel(val)}
+                          className="flex flex-col items-center py-2.5 px-1 rounded-xl border-2 transition font-bold text-sm"
+                          style={{
+                            borderColor: priorityLevel === val ? ADMIN_COLORS.primary : "#e5e7eb",
+                            backgroundColor: priorityLevel === val ? ADMIN_COLORS.primary + "10" : "white",
+                            color: priorityLevel === val ? ADMIN_COLORS.primary : "#374151",
+                          }}
+                        >
+                          <span className="text-base font-black">{label}</span>
+                          <span className="text-[10px] font-medium mt-0.5 opacity-70">{sub}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Manual Input */}
+                  <div>
+                    <label className="block text-xs font-bold text-gray-600 mb-2 uppercase tracking-wide">Manual Entry (1–10)</label>
                     <input
                       type="number"
                       min="1"
                       max="10"
                       value={priorityLevel}
-                      onChange={(e) => setPriorityLevel(parseInt(e.target.value) || 1)}
-                      className="w-full p-3 rounded-xl border border-gray-200 focus:outline-none focus:border-gray-900"
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value);
+                        if (!isNaN(val) && val >= 1 && val <= 10) setPriorityLevel(val);
+                      }}
+                      className="w-full p-3 rounded-xl border-2 border-gray-200 focus:outline-none focus:border-gray-900 text-center text-xl font-black transition"
                     />
-                    <p className="text-xs text-gray-500 mt-1">
-                      Current: {priorityLevel} • 1 = Lowest, 10 = Highest
+                    <p className="text-xs text-gray-500 mt-1.5 text-center">
+                      Current: <span className="font-bold text-gray-900">{priorityLevel}</span> &nbsp;•&nbsp; 1 = Lowest, 10 = Highest
                     </p>
+                  </div>
+
+                  {/* Priority bar visual */}
+                  <div>
+                    <div className="w-full bg-gray-100 rounded-full h-2.5">
+                      <div
+                        className="h-2.5 rounded-full transition-all"
+                        style={{
+                          width: `${priorityLevel * 10}%`,
+                          backgroundColor:
+                            priorityLevel >= 8 ? ADMIN_COLORS.success :
+                            priorityLevel >= 5 ? ADMIN_COLORS.warning :
+                            ADMIN_COLORS.error,
+                        }}
+                      />
+                    </div>
+                    <div className="flex justify-between text-[10px] text-gray-400 mt-1">
+                      <span>Low</span><span>Medium</span><span>High</span>
+                    </div>
                   </div>
                 </div>
               </>
