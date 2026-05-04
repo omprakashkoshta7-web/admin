@@ -160,8 +160,8 @@ export default function ProductsPage() {
         unit: form.unit,
         description: form.description,
         flowType: form.flowType,
-        // Only send image URL if it's a real http URL (not base64) to avoid 413
-        ...(form.imageUrl && form.imageUrl.startsWith('http') ? { images: [form.imageUrl], thumbnail: form.imageUrl } : {}),
+        // Send image if available — http URL preferred, base64 as fallback
+        ...(form.imageUrl ? { images: [form.imageUrl], thumbnail: form.imageUrl } : {}),
       };
 
       // Ensure flowType matches the selected category's flowType (server requires this)
@@ -204,6 +204,7 @@ export default function ProductsPage() {
           unit: updated.unit ?? payload.unit,
           active: updated.active !== false,
           vendors: updated.vendors ?? 0,
+          imageUrl: updated.images?.[0] ?? updated.thumbnail ?? form.imageUrl ?? "",
         }) : p));
       } else {
         const created: any = await createProduct(payload);
@@ -216,6 +217,7 @@ export default function ProductsPage() {
           unit: created.unit ?? payload.unit ?? 'per page',
           active: created.active !== false,
           vendors: created.vendors ?? 0,
+          imageUrl: created.images?.[0] ?? created.thumbnail ?? form.imageUrl ?? "",
         };
         setProducts(prev => [newProd, ...prev]);
       }
