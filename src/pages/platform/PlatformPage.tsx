@@ -653,10 +653,6 @@ export default function PlatformPage() {
                 Close
               </button>
               <button
-                onClick={() => { setViewCityModal(null); setSelectedCity(viewCityModal); setPauseReason(""); setShowCityPause(true); }}
-                className="flex-1 py-2.5 text-white text-sm font-bold rounded-xl transition flex items-center justify-center gap-2"
-                style={{ backgroundColor: isSuperAdmin ? (cityPause[viewCityModal] ? ADMIN_COLORS.success : ADMIN_COLORS.warning) : "#9ca3af" }}
-                title={!isSuperAdmin ? "Super Admin access required" : ""}
                 onClick={() => {
                   if (!isSuperAdmin) {
                     setViewCityModal(null);
@@ -665,6 +661,9 @@ export default function PlatformPage() {
                   }
                   setViewCityModal(null); setSelectedCity(viewCityModal); setPauseReason(""); setShowCityPause(true);
                 }}
+                className="flex-1 py-2.5 text-white text-sm font-bold rounded-xl transition flex items-center justify-center gap-2"
+                style={{ backgroundColor: isSuperAdmin ? (cityPause[viewCityModal] ? ADMIN_COLORS.success : ADMIN_COLORS.warning) : "#9ca3af" }}
+                title={!isSuperAdmin ? "Super Admin access required" : ""}
               >
                 {!isSuperAdmin && <Shield size={13} />}
                 {cityPause[viewCityModal] ? "Resume City" : "Pause City"}
