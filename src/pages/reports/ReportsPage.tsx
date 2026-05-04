@@ -237,6 +237,9 @@ export default function ReportsPage() {
         ))}
       </div>
 
+      {/* ── OVERVIEW TAB ────────────────────────────────────────────────────── */}
+      {activeTab === "overview" && (<>
+
       {/* ── Date Filter Bar ─────────────────────────────────────────────────── */}
       <div className="bg-white rounded-xl p-4 flex flex-wrap items-center gap-3" style={CS}>
         <Calendar size={16} className="text-gray-400 flex-shrink-0" />
@@ -617,6 +620,8 @@ export default function ReportsPage() {
           </table>
         </div>
       </div>
+
+      </> )}
 
       {/* ── REFERRALS TAB ───────────────────────────────────────────────────── */}
       {activeTab === "referrals" && (
