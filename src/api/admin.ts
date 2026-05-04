@@ -301,10 +301,15 @@ export const setOrderIntake = async (enabled: boolean) => {
   });
 };
 
-export const setCityPause = async (city: string, paused: boolean, reason?: string) => {
+export const setCityPause = async (city: string, paused: boolean, reason?: string): Promise<{
+  pausedCities: string[];
+  pausedCityDetails: Array<{ city: string; reason: string; pausedAt: string }>;
+}> => {
+  const body: Record<string, unknown> = { city, paused };
+  if (reason) body.reason = reason;
   return await request('/admin/control/city-pause', {
     method: 'PATCH',
-    body: JSON.stringify({ city, paused, ...(reason ? { reason } : {}) }),
+    body: JSON.stringify(body),
   });
 };
 

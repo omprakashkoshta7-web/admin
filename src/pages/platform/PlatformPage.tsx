@@ -53,22 +53,21 @@ export default function PlatformPage() {
       setVendorIntake((controlData as any).vendorIntakeEnabled ?? true);
       setSystemKill((controlData as any).systemKillSwitchEnabled ?? false);
 
-      // Backend returns pausedCities as an array ["Mumbai", "Delhi"]
-      // Convert to { Mumbai: true, Delhi: true } for easy lookup
+      // GET /admin/control returns pausedCities: string[]
       const pausedArr: string[] = (controlData as any).pausedCities || [];
       const pauseMap: Record<string, boolean> = {};
       pausedArr.forEach((city: string) => { pauseMap[city] = true; });
       setCityPauseMap(pauseMap);
 
-      // Load reason + pausedAt from pausedCityDetails array
+      // GET /admin/control returns pausedCityDetails: [{ city, reason, pausedAt }]
       const details: any[] = (controlData as any).pausedCityDetails || [];
       const detailsMap: Record<string, { reason?: string; pausedAt?: string }> = {};
       details.forEach((d: any) => {
-        if (d.city) detailsMap[d.city] = { reason: d.reason, pausedAt: d.pausedAt };
+        if (d.city) detailsMap[d.city] = { reason: d.reason || "", pausedAt: d.pausedAt };
       });
       setCityDetails(detailsMap);
-      
-      // Transform featureFlags object to array format for display
+
+      // featureFlags: object → array
       const flagsArray = Object.entries((controlData as any).featureFlags || {}).map(([key, value]: [string, any]) => ({
         id: key,
         name: key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, ' '),
@@ -181,7 +180,6 @@ export default function PlatformPage() {
       setError('Super Admin access required to manage city pause. Contact your Super Admin.');
       return;
     }
-
     if (!selectedCity) {
       setError('Please select a city');
       return;
@@ -190,31 +188,40 @@ export default function PlatformPage() {
     const isPaused = cityPause[selectedCity] || false;
     const newState = !isPaused;
 
-    // Reason is required only when pausing, not when resuming
     if (newState && !pauseReason.trim()) {
       setError('Please provide a reason for pausing');
       return;
     }
-    
+
     try {
       setLoading(true);
       setError("");
-      // Use dedicated setCityPause API — sends { city, paused, reason }
-      await setCityPause(selectedCity, newState, pauseReason.trim() || undefined);
-      // Update local state immediately
-      setCityPauseMap(prev => ({ ...prev, [selectedCity]: newState }));
-      if (newState) {
-        setCityDetails(prev => ({ ...prev, [selectedCity]: { reason: pauseReason.trim(), pausedAt: new Date().toISOString() } }));
-      } else {
-        setCityDetails(prev => { const n = { ...prev }; delete n[selectedCity]; return n; });
-      }
+
+      // PATCH /admin/control/city-pause
+      const result = await setCityPause(
+        selectedCity,
+        newState,
+        newState ? pauseReason.trim() : undefined
+      );
+
+      // Update cityPause map from response pausedCities array
+      const pauseMap: Record<string, boolean> = {};
+      (result?.pausedCities || []).forEach((c: string) => { pauseMap[c] = true; });
+      setCityPauseMap(pauseMap);
+
+      // Update cityDetails map from response pausedCityDetails array
+      const detailsMap: Record<string, { reason?: string; pausedAt?: string }> = {};
+      (result?.pausedCityDetails || []).forEach((d: any) => {
+        if (d.city) detailsMap[d.city] = { reason: d.reason, pausedAt: d.pausedAt };
+      });
+      setCityDetails(detailsMap);
+
       setShowCityPause(false);
       setSelectedCity("");
       setPauseReason("");
-      refetch();
-    } catch (error: any) {
-      console.error('Failed to update city pause:', error);
-      setError(error?.message || 'Failed to update city pause');
+    } catch (err: any) {
+      console.error('Failed to update city pause:', err);
+      setError(err?.message || 'Failed to update city pause');
     } finally {
       setLoading(false);
     }
