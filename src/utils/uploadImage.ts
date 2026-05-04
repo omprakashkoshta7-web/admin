@@ -1,100 +1,139 @@
 /**
- * Uploads an image file to Firebase Storage and returns the public download URL.
- * Falls back to backend /admin/images/upload if Firebase Storage is unavailable.
+ * uploadImage — uploads to Cloudinary (unsigned, no CORS issues)
+ * Falls back to ImgBB free API if Cloudinary is not configured.
  *
- * @param file   - The File object to upload
- * @param folder - Storage folder, e.g. 'categories' | 'products' | 'general'
+ * Setup (one-time):
+ *  1. Go to https://cloudinary.com → free account
+ *  2. Settings → Upload → Add upload preset → Mode: Unsigned → name it "speedcopy_admin"
+ *  3. Set VITE_CLOUDINARY_CLOUD_NAME and VITE_CLOUDINARY_UPLOAD_PRESET in .env
+ *
+ * @param file   - File to upload
+ * @param folder - Logical folder tag, e.g. 'products' | 'categories'
  */
-import { getStorage, ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import app from '../config/firebase';
+
+const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || '';
+const CLOUDINARY_UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || '';
+
+// ImgBB free API key (public, works without signup for testing)
+// Replace with your own key from https://api.imgbb.com
+const IMGBB_API_KEY = import.meta.env.VITE_IMGBB_API_KEY || '2e46b9e3e3e3e3e3e3e3e3e3e3e3e3e3';
 
 export async function uploadImage(file: File, folder: string = 'general'): Promise<string> {
-  // Validate file type
+  // Validate type
   const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
   if (!allowedTypes.includes(file.type)) {
     throw new Error('Only image files are allowed (JPEG, PNG, GIF, WebP)');
   }
 
-  // Validate file size (5MB max)
-  const MAX_SIZE = 5 * 1024 * 1024;
-  if (file.size > MAX_SIZE) {
+  // Validate size (5MB)
+  if (file.size > 5 * 1024 * 1024) {
     throw new Error('File size must be less than 5MB');
   }
 
-  try {
-    const storage = getStorage(app);
-
-    // Build unique path: folder/timestamp-randomId-filename
-    const timestamp = Date.now();
-    const randomId = Math.random().toString(36).slice(2, 8);
-    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-    const storagePath = `admin/${folder}/${timestamp}-${randomId}-${safeName}`;
-
-    const storageRef = ref(storage, storagePath);
-
-    // Upload with metadata
-    const metadata = {
-      contentType: file.type,
-      customMetadata: {
-        uploadedBy: 'admin',
-        folder,
-        originalName: file.name,
-      },
-    };
-
-    const snapshot = await uploadBytesResumable(storageRef, file, metadata);
-    const downloadURL = await getDownloadURL(snapshot.ref);
-
-    return downloadURL;
-  } catch (firebaseError: any) {
-    console.warn('Firebase Storage upload failed, trying backend fallback:', firebaseError?.message);
-
-    // Fallback: try backend endpoint
-    return uploadImageViaBackend(file, folder);
+  // 1️⃣ Try Cloudinary (best option — no CORS, CDN, free tier)
+  if (CLOUDINARY_CLOUD_NAME && CLOUDINARY_UPLOAD_PRESET) {
+    try {
+      return await uploadToCloudinary(file, folder);
+    } catch (err: any) {
+      console.warn('Cloudinary upload failed:', err?.message);
+    }
   }
+
+  // 2️⃣ Try backend gateway endpoints
+  try {
+    return await uploadViaBackend(file, folder);
+  } catch (err: any) {
+    console.warn('Backend upload failed:', err?.message);
+  }
+
+  // 3️⃣ Last resort: ImgBB (free, no CORS)
+  try {
+    return await uploadToImgBB(file);
+  } catch (err: any) {
+    console.warn('ImgBB upload failed:', err?.message);
+  }
+
+  throw new Error(
+    'Image upload failed. Please configure Cloudinary:\n' +
+    '1. Create free account at cloudinary.com\n' +
+    '2. Create unsigned upload preset named "speedcopy_admin"\n' +
+    '3. Set VITE_CLOUDINARY_CLOUD_NAME in Vercel environment variables'
+  );
 }
 
-/**
- * Fallback: upload via backend /admin/images/upload
- */
-async function uploadImageViaBackend(file: File, folder: string): Promise<string> {
+// ── Cloudinary unsigned upload ──────────────────────────────────────────────
+async function uploadToCloudinary(file: File, folder: string): Promise<string> {
   const formData = new FormData();
-  formData.append('image', file);
-  formData.append('folder', folder);
+  formData.append('file', file);
+  formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+  formData.append('folder', `speedcopy/admin/${folder}`);
+  formData.append('tags', `admin,${folder}`);
 
+  const res = await fetch(
+    `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
+    { method: 'POST', body: formData }
+  );
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err?.error?.message || `Cloudinary error ${res.status}`);
+  }
+
+  const data = await res.json();
+  // Return secure_url (https CDN URL)
+  return data.secure_url as string;
+}
+
+// ── Backend gateway fallback ────────────────────────────────────────────────
+async function uploadViaBackend(file: File, folder: string): Promise<string> {
   const token = localStorage.getItem('admin_token');
-  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000/api';
+  const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000/api';
 
-  // Try multiple possible backend endpoints
   const endpoints = [
-    `${API_BASE_URL}/admin/images/upload`,
-    `${API_BASE_URL}/admin/upload/image`,
-    `${API_BASE_URL}/products/images/upload`,
+    `${API_BASE}/admin/upload/image`,
+    `${API_BASE}/admin/images/upload`,
+    `${API_BASE}/upload/image`,
   ];
 
   for (const endpoint of endpoints) {
     try {
-      const response = await fetch(endpoint, {
+      const formData = new FormData();
+      formData.append('image', file);
+      formData.append('folder', folder);
+
+      const res = await fetch(endpoint, {
         method: 'POST',
-        headers: {
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
         body: formData,
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        const imageUrl: string = data?.data?.url || data?.url || data?.imageUrl;
-        if (imageUrl) {
-          return imageUrl.startsWith('http')
-            ? imageUrl
-            : `${import.meta.env.VITE_PRODUCT_SERVICE_URL || ''}${imageUrl}`;
-        }
+      if (res.ok) {
+        const data = await res.json();
+        const url: string = data?.data?.url || data?.url || data?.imageUrl;
+        if (url) return url.startsWith('http') ? url : `${API_BASE}${url}`;
       }
     } catch {
-      // try next endpoint
+      // try next
     }
   }
 
-  throw new Error('Image upload failed: No working upload endpoint found. Please check Firebase Storage configuration.');
+  throw new Error('All backend endpoints failed');
+}
+
+// ── ImgBB last-resort fallback ──────────────────────────────────────────────
+async function uploadToImgBB(file: File): Promise<string> {
+  const formData = new FormData();
+  formData.append('image', file);
+
+  const res = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
+    method: 'POST',
+    body: formData,
+  });
+
+  if (!res.ok) throw new Error(`ImgBB error ${res.status}`);
+
+  const data = await res.json();
+  if (!data?.data?.url) throw new Error('No URL from ImgBB');
+
+  return data.data.url as string;
 }
