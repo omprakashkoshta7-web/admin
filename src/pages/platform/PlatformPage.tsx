@@ -5,7 +5,7 @@ import {
   XCircle
 } from "lucide-react";
 import { useAsync } from "../../hooks/useAsync";
-import { getAdminControlState, updateAdminControl } from "../../api/admin";
+import { getAdminControlState, updateAdminControl, setCityPause } from "../../api/admin";
 import type { AdminControlStateResponse } from "../../api/admin";
 import { ADMIN_COLORS } from "../../utils/colors";
 import AdminMetricCard from "../../components/ui/AdminMetricCard";
@@ -15,7 +15,7 @@ export default function PlatformPage() {
   const [orderIntake, setOrderIntake] = useState(true);
   const [vendorIntake, setVendorIntake] = useState(true);
   const [systemKill, setSystemKill] = useState(false);
-  const [cityPause, setCityPause] = useState<Record<string, boolean>>({});
+  const [cityPause, setCityPauseMap] = useState<Record<string, boolean>>({});
   const [confirm, setConfirm] = useState("");
   const [flags, setFlags] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -58,7 +58,7 @@ export default function PlatformPage() {
       const pausedArr: string[] = (controlData as any).pausedCities || [];
       const pauseMap: Record<string, boolean> = {};
       pausedArr.forEach((city: string) => { pauseMap[city] = true; });
-      setCityPause(pauseMap);
+      setCityPauseMap(pauseMap);
 
       // Load reason + pausedAt from pausedCityDetails array
       const details: any[] = (controlData as any).pausedCityDetails || [];
@@ -199,13 +199,10 @@ export default function PlatformPage() {
     try {
       setLoading(true);
       setError("");
-      await updateAdminControl('city-pause', { 
-        city: selectedCity, 
-        paused: newState,
-        reason: pauseReason.trim(),
-      });
-      // Update local state immediately so View Details shows the reason right away
-      setCityPause(prev => ({ ...prev, [selectedCity]: newState }));
+      // Use dedicated setCityPause API — sends { city, paused, reason }
+      await setCityPause(selectedCity, newState, pauseReason.trim() || undefined);
+      // Update local state immediately
+      setCityPauseMap(prev => ({ ...prev, [selectedCity]: newState }));
       if (newState) {
         setCityDetails(prev => ({ ...prev, [selectedCity]: { reason: pauseReason.trim(), pausedAt: new Date().toISOString() } }));
       } else {
