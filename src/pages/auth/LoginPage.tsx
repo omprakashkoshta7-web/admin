@@ -219,11 +219,17 @@ const LoginPage = () => {
       const { user } = useFirebaseAuth
         ? await loginWithFirebase(form.email, form.password)
         : await loginAdmin(form.email, form.password);
-      if (user.role !== 'admin') {
+
+      // Allow admin, super_admin — block only non-admin roles
+      const allowedRoles = ['admin', 'super_admin', 'superadmin', 'staff'];
+      if (!allowedRoles.includes(user.role?.toLowerCase?.())) {
         throw new Error('Only admin users can access this portal');
       }
 
-      const mappedRole: AdminRole = user.role === 'admin' ? 'SuperAdmin' : 'Support';
+      const mappedRole: AdminRole = 
+        (user.role === 'super_admin' || user.role === 'superadmin') ? 'SuperAdmin' :
+        user.role === 'admin' ? 'SuperAdmin' :
+        'Support';
       setAvailableRoles([mappedRole]);
       setSelectedRole(mappedRole);
       setStep('mfa');
@@ -287,14 +293,22 @@ const LoginPage = () => {
       userAgent: navigator.userAgent
     };
     
-    // Store session securely
     localStorage.setItem("admin_session", JSON.stringify(session));
+
+    // Ensure admin_user has the correct role for permission checks (e.g. city-pause)
+    const storedUser = (() => { try { return JSON.parse(localStorage.getItem('admin_user') || '{}'); } catch { return {}; } })();
+    if (storedUser && Object.keys(storedUser).length > 0) {
+      const backendRole = storedUser.role;
+      // Only override if backend didn't already return super_admin
+      if (backendRole !== 'super_admin' && role === 'SuperAdmin') {
+        localStorage.setItem('admin_user', JSON.stringify({ ...storedUser, role: 'super_admin' }));
+      }
+    }
     
-    // Navigate based on role
     if (role === "SuperAdmin") navigate("/dashboard");
     else if (role === "Admin") navigate("/orders");
     else if (role === "Moderator") navigate("/support");
-    else navigate("/support"); // Support role
+    else navigate("/support");
   };
 
   const handleOtpChange = (val: string, idx: number) => {
