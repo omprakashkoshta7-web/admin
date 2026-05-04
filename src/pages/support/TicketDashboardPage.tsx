@@ -327,7 +327,9 @@ const TicketDashboardPage = () => {
                           </td>
 
                           <td className="p-4">
-                            <p className="text-sm font-semibold text-gray-900 truncate max-w-[120px]">{ticket.userId || "—"}</p>
+                            <p className="text-sm font-semibold text-gray-900 truncate max-w-[120px]">
+                              {ticket.userName || ticket.customerName || ticket.name || ticket.email?.split("@")[0] || String(ticket.userId || "—").slice(-8)}
+                            </p>
                             <p className="text-xs text-gray-500 truncate max-w-[120px]">{ticket.email || ""}</p>
                           </td>
 
@@ -350,7 +352,16 @@ const TicketDashboardPage = () => {
                           </td>
 
                           <td className="p-4">
-                            <p className="text-xs text-gray-600">{ticket.assignedTo || "Unassigned"}</p>
+                            {ticket.assignedTo ? (
+                              <p className="text-xs text-gray-600">
+                                {staff.find((s: any) => (s._id || s.id) === ticket.assignedTo)?.name ||
+                                 staff.find((s: any) => (s._id || s.id) === ticket.assignedTo)?.email ||
+                                 ticket.assignedToName || ticket.agentName ||
+                                 String(ticket.assignedTo).slice(-8)}
+                              </p>
+                            ) : (
+                              <p className="text-xs text-gray-400 italic">Unassigned</p>
+                            )}
                           </td>
 
                           <td className="p-4">
