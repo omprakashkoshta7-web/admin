@@ -55,7 +55,6 @@ const navGroups = [
     label: "System",
     items: [
       { to: "/support", icon: HeadphonesIcon, label: "Support" },
-      { to: "/risk", icon: Shield, label: "Risk Cases" },
       { to: "/reports", icon: BarChart2, label: "Reports" },
       { to: "/platform", icon: Settings, label: "Platform" },
     ]
