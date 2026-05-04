@@ -991,3 +991,122 @@ export const updateMyAdminProfile = async (data: {
     body: JSON.stringify(data),
   });
 };
+
+// ─── REPORTS — Referrals & Export ──────────────────────────────────────────
+
+export const getAdminReferralsReport = async (params?: { from?: string; to?: string }) => {
+  const query = params ? '?' + new URLSearchParams(
+    Object.entries(params).reduce((acc, [key, value]) => {
+      if (value !== undefined) acc[key] = String(value);
+      return acc;
+    }, {} as Record<string, string>)
+  ).toString() : '';
+  return await request(`/admin/reports/referrals${query}`);
+};
+
+export const exportAdminReport = async (params: {
+  type: 'orders' | 'invoices' | 'revenue' | 'audit_logs' | 'audit' | 'referrals';
+  format?: 'json' | 'csv' | 'excel' | 'xlsx' | 'pdf';
+  from?: string;
+  to?: string;
+  limit?: number;
+}): Promise<Response> => {
+  const token = localStorage.getItem('admin_token');
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000/api';
+  const query = '?' + new URLSearchParams(
+    Object.entries(params).reduce((acc, [key, value]) => {
+      if (value !== undefined) acc[key] = String(value);
+      return acc;
+    }, {} as Record<string, string>)
+  ).toString();
+  // Return raw Response so caller can handle blob (CSV/PDF) or JSON
+  return fetch(`${API_BASE_URL}/admin/reports/export${query}`, {
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+};
+
+export const getComplianceSummary = async () => {
+  return await request('/admin/control/compliance-summary');
+};
+
+// ─── RISK CASES ─────────────────────────────────────────────────────────────
+
+export const getRiskCases = async (params?: {
+  status?: string;
+  severity?: string;
+  category?: string;
+  entityType?: string;
+  assignedTo?: string;
+  identityId?: string;
+  search?: string;
+  page?: number;
+  limit?: number;
+}) => {
+  const query = params ? '?' + new URLSearchParams(
+    Object.entries(params).reduce((acc, [key, value]) => {
+      if (value !== undefined) acc[key] = String(value);
+      return acc;
+    }, {} as Record<string, string>)
+  ).toString() : '';
+  return await request(`/admin/risk/cases${query}`);
+};
+
+export const getRiskCasesSummary = async () => {
+  return await request('/admin/risk/cases/summary');
+};
+
+export const getRiskCaseById = async (id: string) => {
+  return await request(`/admin/risk/cases/${id}`);
+};
+
+export const createRiskCase = async (data: {
+  subject: string;
+  entityType?: string;
+  entityId?: string;
+  category?: string;
+  severity?: string;
+  status?: string;
+  description?: string;
+  evidence?: string[];
+  assignedTo?: string;
+  tags?: string[];
+}) => {
+  return await request('/admin/risk/cases', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+};
+
+export const updateRiskCase = async (id: string, data: {
+  subject?: string;
+  entityType?: string;
+  entityId?: string;
+  category?: string;
+  severity?: string;
+  status?: string;
+  description?: string;
+  assignedTo?: string;
+  tags?: string[];
+  resolution?: string;
+  evidence?: string[];
+  note?: string;
+}) => {
+  return await request(`/admin/risk/cases/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+};
+
+export const addRiskCaseAction = async (id: string, data: {
+  action?: string;
+  note?: string;
+  metadata?: Record<string, unknown>;
+}) => {
+  return await request(`/admin/risk/cases/${id}/actions`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+};

@@ -25,6 +25,7 @@ import ReportsPage from './pages/reports/ReportsPage';
 import PlatformPage from './pages/platform/PlatformPage';
 import DeliveryPage from './pages/delivery/DeliveryPage';
 import FailureHandlingPage from './pages/failures/FailureHandlingPage';
+import RiskCasesPage from './pages/failures/RiskCasesPage';
 import ProductsPage from './pages/catalog/ProductsPage';
 import CategoriesPage from './pages/catalog/CategoriesPage';
 import PricingPage from './pages/catalog/PricingPage';
@@ -118,6 +119,7 @@ const App = () => {
             <Route path="platform" element={<PlatformPage />} />
             <Route path="delivery" element={<DeliveryPage />} />
             <Route path="failures" element={<FailureHandlingPage />} />
+            <Route path="risk" element={<RiskCasesPage />} />
             <Route path="products" element={<ProductsPage />} />
             <Route path="categories" element={<CategoriesPage />} />
             <Route path="pricing" element={<PricingPage />} />

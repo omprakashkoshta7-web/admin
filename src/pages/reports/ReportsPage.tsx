@@ -1,11 +1,11 @@
 import { useState, useEffect } from "react";
-import { Download, FileText, BookOpen, Shield, Lock, TrendingUp, ShoppingCart, BarChart2, RefreshCw, Calendar, User, Tag } from "lucide-react";
+import { Download, FileText, BookOpen, Shield, Lock, TrendingUp, ShoppingCart, BarChart2, RefreshCw, Calendar, User, Tag, Gift, ChevronDown } from "lucide-react";
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip,
   ResponsiveContainer, CartesianGrid, PieChart, Pie, Cell
 } from "recharts";
 import { useAsync } from "../../hooks/useAsync";
-import { getAdminReports, getAdminAuditLogs } from "../../api/admin";
+import { getAdminReports, getAdminAuditLogs, getAdminReferralsReport, exportAdminReport } from "../../api/admin";
 import type { AdminReportsResponse } from "../../api/admin";
 import LoadingState from "../../components/ui/LoadingState";
 import AdminMetricCard from "../../components/ui/AdminMetricCard";
@@ -38,12 +38,14 @@ const ACTION_COLORS: Record<string, string> = {
 };
 
 export default function ReportsPage() {
+  const [activeTab, setActiveTab] = useState<"overview" | "referrals">("overview");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [appliedFrom, setAppliedFrom] = useState("");
   const [appliedTo, setAppliedTo] = useState("");
   const [auditLimit, setAuditLimit] = useState(50);
   const [auditActionFilter, setAuditActionFilter] = useState("");
+  const [exportLoading, setExportLoading] = useState<string | null>(null);
 
   const { data: reportsData, loading: reportsLoading } = useAsync<AdminReportsResponse>(
     () => getAdminReports({ from: appliedFrom || undefined, to: appliedTo || undefined }),
@@ -55,6 +57,13 @@ export default function ReportsPage() {
     () => getAdminAuditLogs(),
     null,
     []
+  );
+
+  // Referrals report
+  const { data: referralsData, loading: referralsLoading, refetch: refetchReferrals } = useAsync(
+    () => getAdminReferralsReport({ from: appliedFrom || undefined, to: appliedTo || undefined }),
+    null,
+    [appliedFrom, appliedTo]
   );
 
   // Auto-refresh every 30 seconds
@@ -120,70 +129,81 @@ export default function ReportsPage() {
 
   const uniqueActions = [...new Set(allLogs.map((l) => l.action).filter(Boolean))];
 
-  // ── Export handlers ─────────────────────────────────────────────────────────
-  const exportOrdersReport = () => {
-    const orders = revenueChartData;
-    const csvContent = [
-      ['Date', 'Orders', 'Gross Revenue', 'Net Revenue'].join(','),
-      ...orders.map((item: any) => [item.date, item.orders, item.gross, item.net].join(','))
-    ].join('\n');
+  // ── Export handlers — backend API ──────────────────────────────────────────
+  const handleBackendExport = async (type: 'orders' | 'invoices' | 'revenue' | 'audit_logs' | 'referrals', format: 'csv' | 'pdf' | 'json' = 'csv', label: string) => {
+    setExportLoading(type);
+    try {
+      const res = await exportAdminReport({
+        type,
+        format,
+        from: appliedFrom || undefined,
+        to: appliedTo || undefined,
+        limit: 2000,
+      });
+
+      if (!res.ok) {
+        // Fallback to local CSV
+        console.warn(`Backend export failed for ${type}, falling back to local`);
+        localExportFallback(type);
+        return;
+      }
+
+      const contentType = res.headers.get('content-type') || '';
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const ext = contentType.includes('pdf') ? 'pdf' : contentType.includes('csv') ? 'csv' : 'json';
+      a.download = `${label}-${new Date().toISOString().split('T')[0]}.${ext}`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } catch {
+      localExportFallback(type);
+    } finally {
+      setExportLoading(null);
+    }
+  };
+
+  const localExportFallback = (type: string) => {
+    let csvContent = '';
+    let filename = '';
+    if (type === 'orders' || type === 'revenue') {
+      csvContent = [
+        ['Date', 'Orders', 'Gross Revenue', 'Net Revenue'].join(','),
+        ...revenueChartData.map((item: any) => [item.date, item.orders, item.gross, item.net].join(','))
+      ].join('\n');
+      filename = `${type}-report`;
+    } else if (type === 'audit_logs') {
+      csvContent = [
+        ['Timestamp', 'Action', 'Actor', 'Target Type', 'Target ID', 'Details'].join(','),
+        ...filteredLogs.map((log: any) => [
+          log.createdAt ? new Date(log.createdAt).toISOString() : '',
+          log.action || '',
+          log.actorName || log.actorId || '',
+          log.targetType || '',
+          log.targetId || '',
+          `"${JSON.stringify(log.details || '').replace(/"/g, '""')}"`,
+        ].join(','))
+      ].join('\n');
+      filename = 'audit-logs';
+    } else {
+      csvContent = 'No data available';
+      filename = type;
+    }
     const blob = new Blob([csvContent], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `orders-report-${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = `${filename}-${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
     window.URL.revokeObjectURL(url);
   };
 
-  const exportRevenueReport = () => {
-    const csvContent = [
-      ['Date', 'Gross Revenue', 'Net Revenue', 'Orders'].join(','),
-      ...revenueChartData.map((item: any) => [item.date, item.gross, item.net, item.orders].join(','))
-    ].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `revenue-report-${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
-    window.URL.revokeObjectURL(url);
-  };
-
-  const exportInvoices = () => {
-    const csvContent = [
-      ['Date', 'Orders', 'Gross Revenue', 'Net Revenue'].join(','),
-      ...revenueChartData.map((item: any) => [item.date, item.orders, item.gross, item.net].join(','))
-    ].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `invoices-${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
-    window.URL.revokeObjectURL(url);
-  };
-
-  const exportAuditLogs = () => {
-    const csvContent = [
-      ['Timestamp', 'Action', 'Actor', 'Target Type', 'Target ID', 'Details'].join(','),
-      ...filteredLogs.map((log: any) => [
-        log.createdAt ? new Date(log.createdAt).toISOString() : '',
-        log.action || '',
-        log.actorName || log.actorId || '',
-        log.targetType || '',
-        log.targetId || '',
-        `"${JSON.stringify(log.details || log.description || '').replace(/"/g, '""')}"`,
-      ].join(','))
-    ].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `audit-logs-${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
-    window.URL.revokeObjectURL(url);
-  };
+  // Legacy local exports (kept for fallback)
+  const exportOrdersReport = () => localExportFallback('orders');
+  const exportRevenueReport = () => localExportFallback('revenue');
+  const exportInvoices = () => localExportFallback('invoices');
+  const exportAuditLogs = () => localExportFallback('audit_logs');
 
   if (reportsLoading) {
     return (
@@ -193,8 +213,34 @@ export default function ReportsPage() {
     );
   }
 
+  // ── Referrals data ──────────────────────────────────────────────────────────
+  const refRaw = (referralsData as any) || {};
+  const statusSummary: any[] = refRaw?.statusSummary || [];
+  const topReferrers: any[] = refRaw?.topReferrers || [];
+  const recentReferrals: any[] = refRaw?.recentReferrals || [];
+  const rewardSummary = refRaw?.rewardSummary || {};
+  const totalReferrals = statusSummary.reduce((s: number, x: any) => s + (x.count || 0), 0);
+  const completedReferrals = statusSummary.find((x: any) => x._id === 'completed')?.count || 0;
+  const totalRewards = rewardSummary.totalRewardCredits || 0;
+
   return (
     <div className="space-y-5">
+
+      {/* ── Tabs ────────────────────────────────────────────────────────────── */}
+      <div className="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit">
+        {[
+          { key: "overview", label: "Overview", icon: BarChart2 },
+          { key: "referrals", label: "Referrals", icon: Gift },
+        ].map(({ key, label, icon: Icon }) => (
+          <button
+            key={key}
+            onClick={() => setActiveTab(key as any)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition ${activeTab === key ? "bg-white shadow text-gray-900" : "text-gray-500 hover:text-gray-700"}`}
+          >
+            <Icon size={14} /> {label}
+          </button>
+        ))}
+      </div>
 
       {/* ── Date Filter Bar ─────────────────────────────────────────────────── */}
       <div className="bg-white rounded-xl p-4 flex flex-wrap items-center gap-3" style={CS}>
@@ -392,10 +438,10 @@ export default function ReportsPage() {
       {/* ── Export Cards ────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 gap-3">
         {[
-          { label: "Orders Report", desc: "All orders with status, vendor, SLA", icon: FileText, format: "CSV/Excel", color: "#334155", onClick: exportOrdersReport },
-          { label: "Revenue Report", desc: "Gross/net revenue by store and period", icon: FileText, format: "CSV/Excel", color: "#10b981", onClick: exportRevenueReport },
-          { label: "Invoice Export", desc: "GST-compliant invoices", icon: BookOpen, format: "PDF", color: "#06b6d4", onClick: exportInvoices },
-          { label: "Audit Logs Export", desc: "All admin/staff actions — append-only", icon: Shield, format: "CSV", color: "#f59e0b", onClick: exportAuditLogs },
+          { label: "Orders Report", desc: "All orders with status, vendor, SLA", icon: FileText, format: "CSV", color: "#334155", type: "orders" as const, fmt: "csv" as const },
+          { label: "Revenue Report", desc: "Gross/net revenue by store and period", icon: FileText, format: "CSV", color: "#10b981", type: "revenue" as const, fmt: "csv" as const },
+          { label: "Invoice Export", desc: "GST-compliant invoices", icon: BookOpen, format: "PDF", color: "#06b6d4", type: "invoices" as const, fmt: "pdf" as const },
+          { label: "Audit Logs Export", desc: "All admin/staff actions — append-only", icon: Shield, format: "CSV", color: "#f59e0b", type: "audit_logs" as const, fmt: "csv" as const },
         ].map((r) => (
           <div key={r.label} className="bg-white rounded-xl p-4 flex items-start gap-3" style={CS}>
             <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: r.color + "18" }}>
@@ -408,8 +454,17 @@ export default function ReportsPage() {
                 {r.format}
               </span>
             </div>
-            <button onClick={r.onClick} className="flex items-center gap-1 px-3 py-1.5 text-white text-xs font-bold rounded-lg flex-shrink-0" style={{ backgroundColor: "#334155" }}>
-              <Download size={12} /> Export
+            <button
+              onClick={() => handleBackendExport(r.type, r.fmt, r.label.toLowerCase().replace(/ /g, '-'))}
+              disabled={exportLoading === r.type}
+              className="flex items-center gap-1 px-3 py-1.5 text-white text-xs font-bold rounded-lg flex-shrink-0 disabled:opacity-60"
+              style={{ backgroundColor: "#334155" }}
+            >
+              {exportLoading === r.type ? (
+                <><RefreshCw size={11} className="animate-spin" /> Exporting...</>
+              ) : (
+                <><Download size={12} /> Export</>
+              )}
             </button>
           </div>
         ))}
@@ -567,6 +622,115 @@ export default function ReportsPage() {
           </table>
         </div>
       </div>
+
+      {/* ── REFERRALS TAB ───────────────────────────────────────────────────── */}
+      {activeTab === "referrals" && (
+        <div className="space-y-5">
+          {referralsLoading ? (
+            <div className="flex items-center justify-center h-40"><LoadingState message="Loading referrals" /></div>
+          ) : (
+            <>
+              {/* Stats */}
+              <div className="grid grid-cols-4 gap-4">
+                <AdminMetricCard index={0} label="Total Referrals" value={String(totalReferrals)} accent={ADMIN_COLORS.primary} icon={Gift} />
+                <AdminMetricCard label="Completed" value={String(completedReferrals)} accent={ADMIN_COLORS.success} accentBg={ADMIN_COLORS.successBg} icon={TrendingUp} />
+                <AdminMetricCard label="Total Rewards" value={`₹${totalRewards.toLocaleString()}`} accent={ADMIN_COLORS.warning} accentBg={ADMIN_COLORS.warningBg} icon={Gift} />
+                <AdminMetricCard label="Top Referrers" value={String(topReferrers.length)} accent={ADMIN_COLORS.info} accentBg={ADMIN_COLORS.infoBg} icon={User} />
+              </div>
+
+              {/* Status Summary */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-white rounded-xl p-4" style={CS}>
+                  <p className="text-sm font-bold text-gray-900 mb-3">Status Breakdown</p>
+                  <div className="space-y-2">
+                    {statusSummary.map((s: any) => (
+                      <div key={s._id} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
+                        <span className="text-xs font-semibold text-gray-700 capitalize">{s._id}</span>
+                        <div className="flex items-center gap-3">
+                          <span className="text-xs text-gray-500">₹{(s.rewardAmount || 0).toLocaleString()}</span>
+                          <span className="text-sm font-black text-gray-900">{s.count}</span>
+                        </div>
+                      </div>
+                    ))}
+                    {statusSummary.length === 0 && <p className="text-xs text-gray-400 text-center py-4">No referral data</p>}
+                  </div>
+                </div>
+
+                {/* Top Referrers */}
+                <div className="bg-white rounded-xl p-4" style={CS}>
+                  <p className="text-sm font-bold text-gray-900 mb-3">Top Referrers</p>
+                  <div className="space-y-2">
+                    {topReferrers.slice(0, 8).map((r: any, i: number) => (
+                      <div key={r._id} className="flex items-center gap-3 py-1.5 border-b border-gray-50 last:border-0">
+                        <span className="w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center text-xs font-black text-gray-500">{i + 1}</span>
+                        <span className="text-xs font-mono text-gray-600 flex-1 truncate">{String(r._id).slice(-10)}</span>
+                        <span className="text-xs text-gray-500">{r.referrals} refs</span>
+                        <span className="text-xs font-bold text-green-600">₹{r.rewards}</span>
+                      </div>
+                    ))}
+                    {topReferrers.length === 0 && <p className="text-xs text-gray-400 text-center py-4">No referrers yet</p>}
+                  </div>
+                </div>
+              </div>
+
+              {/* Recent Referrals Table */}
+              <div className="bg-white rounded-xl overflow-hidden" style={CS}>
+                <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: "1px solid #f1f5f9", backgroundColor: "#fafbfc" }}>
+                  <p className="text-sm font-bold text-gray-900">Recent Referrals</p>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => refetchReferrals()}
+                      className="p-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 transition"
+                    >
+                      <RefreshCw size={13} className={referralsLoading ? "animate-spin" : ""} />
+                    </button>
+                    <button
+                      onClick={() => handleBackendExport('referrals', 'csv', 'referrals')}
+                      disabled={exportLoading === 'referrals'}
+                      className="flex items-center gap-1 px-3 py-1.5 text-white text-xs font-bold rounded-lg disabled:opacity-60"
+                      style={{ backgroundColor: "#334155" }}
+                    >
+                      <Download size={11} /> Export
+                    </button>
+                  </div>
+                </div>
+                {recentReferrals.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[700px]">
+                      <thead>
+                        <tr style={{ borderBottom: "1px solid #f1f5f9" }}>
+                          {["Referral ID", "Referrer", "Referred", "Code", "Status", "Reward", "Date"].map(h => (
+                            <th key={h} className="text-left text-xs font-bold text-gray-400 uppercase tracking-wide px-4 py-2.5">{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {recentReferrals.map((r: any, i: number) => (
+                          <tr key={r._id} className="hover:bg-gray-50 transition" style={{ borderBottom: i < recentReferrals.length - 1 ? "1px solid #f8fafc" : "none" }}>
+                            <td className="px-4 py-2.5 text-xs font-mono text-gray-400">{String(r._id).slice(-8)}</td>
+                            <td className="px-4 py-2.5 text-xs font-mono text-gray-600">{String(r.referrerId).slice(-8)}</td>
+                            <td className="px-4 py-2.5 text-xs font-mono text-gray-600">{String(r.referredId).slice(-8)}</td>
+                            <td className="px-4 py-2.5"><span className="text-xs font-bold font-mono bg-gray-100 px-2 py-0.5 rounded">{r.referralCode}</span></td>
+                            <td className="px-4 py-2.5">
+                              <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${r.status === 'completed' ? 'bg-green-50 text-green-600' : 'bg-yellow-50 text-yellow-600'}`}>
+                                {r.status}
+                              </span>
+                            </td>
+                            <td className="px-4 py-2.5 text-xs font-bold text-green-600">₹{r.rewardAmount || 0}</td>
+                            <td className="px-4 py-2.5 text-xs text-gray-400">{r.createdAt ? new Date(r.createdAt).toLocaleDateString() : '—'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="text-center py-10 text-gray-400 text-sm">No recent referrals</div>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      )}
 
     </div>
   );
