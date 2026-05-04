@@ -127,11 +127,12 @@ export default function ProfilePage() {
 
     try {
       setPwLoading(true);
-      await request("/staff/auth/change-password", {
-        method: "POST",
+      await request("/admin/profile/password", {
+        method: "PATCH",
         body: JSON.stringify({
           currentPassword: pwForm.current,
           newPassword: pwForm.newPw,
+          confirmPassword: pwForm.confirm,
         }),
       });
       setPwSuccess("Password changed successfully.");
