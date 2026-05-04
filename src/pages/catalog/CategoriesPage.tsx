@@ -439,7 +439,7 @@ export default function CategoriesPage() {
                     className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition">
                     Cancel
                   </button>
-                  <button onClick={save} disabled={!form.name || uploadingImage}
+                  <button onClick={save} disabled={!form.name}
                     className="flex-1 py-2.5 text-white text-sm font-bold rounded-xl disabled:opacity-40 transition hover:opacity-90"
                     style={{ backgroundColor: ADMIN_COLORS.primary }}>
                     {editId ? "Update Category" : "Create Category"}
