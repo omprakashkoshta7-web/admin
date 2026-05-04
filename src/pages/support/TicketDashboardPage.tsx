@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Search, Eye, Clock, AlertTriangle,
   Users, Activity, MessageSquare,
@@ -9,7 +9,8 @@ import { ADMIN_COLORS, getStatusColor } from "../../utils/colors";
 import { useAsync } from "../../hooks/useAsync";
 import {
   getTickets, getTicketStats, assignTicket, escalateTicket,
-  getAgentPerformance, getAdminStaff, resolveTicket, addTicketMessage, getTicketDetail
+  getAgentPerformance, getAdminStaff, resolveTicket, addTicketMessage, getTicketDetail,
+  getAdminCustomers
 } from "../../api/admin";
 import LoadingState from "../../components/ui/LoadingState";
 import AdminMetricCard from "../../components/ui/AdminMetricCard";
@@ -57,9 +58,36 @@ const TicketDashboardPage = () => {
   // Staff list for assign dropdown
   const { data: staffData } = useAsync(() => getAdminStaff(), {}, []);
 
+  // Customers list for name lookup
+  const { data: customersData } = useAsync(() => getAdminCustomers({ limit: 500 }), {}, []);
+
   const tickets: any[] = (ticketsData as any)?.tickets || [];
   const staff: any[] = (staffData as any)?.staff || [];
   const agents: any[] = (agentData as any)?.agents || [];
+
+  // Build userId → name map from customers list
+  const customerNameMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    const list: any[] = (customersData as any)?.customers || (customersData as any)?.users || [];
+    list.forEach((c: any) => {
+      const id = c._id || c.id || c.userId;
+      const name = c.name || c.fullName || c.displayName || c.email?.split("@")[0];
+      if (id && name) map[String(id)] = name;
+    });
+    return map;
+  }, [customersData]);
+
+  // Helper: get display name for a ticket's customer
+  const getCustomerDisplay = (ticket: any) => {
+    const name =
+      ticket.userName ||
+      ticket.customerName ||
+      ticket.user?.name ||
+      ticket.name ||
+      (ticket.userId ? customerNameMap[String(ticket.userId)] : null) ||
+      ticket.email?.split("@")[0];
+    return name || null;
+  };
 
   // Auto-refresh every 30 seconds
   useEffect(() => {
@@ -90,7 +118,8 @@ const TicketDashboardPage = () => {
       t._id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       t.subject?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       t.userId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      t.email?.toLowerCase().includes(searchTerm.toLowerCase());
+      t.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (getCustomerDisplay(t) || "").toLowerCase().includes(searchTerm.toLowerCase());
     const matchStatus = statusFilter === "all" || t.status === statusFilter;
     const matchPriority = priorityFilter === "all" || t.priority === priorityFilter;
     return matchSearch && matchStatus && matchPriority;
@@ -328,7 +357,11 @@ const TicketDashboardPage = () => {
 
                           <td className="p-4">
                             <p className="text-sm font-semibold text-gray-900 truncate max-w-[120px]">
-                              {ticket.userName || ticket.customerName || ticket.name || ticket.email?.split("@")[0] || String(ticket.userId || "—").slice(-8)}
+                              {getCustomerDisplay(ticket) || (
+                                <span className="text-gray-400 font-mono text-xs">
+                                  {String(ticket.userId || "—").slice(-8)}
+                                </span>
+                              )}
                             </p>
                             <p className="text-xs text-gray-500 truncate max-w-[120px]">{ticket.email || ""}</p>
                           </td>
