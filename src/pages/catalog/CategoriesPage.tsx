@@ -1,11 +1,10 @@
-import { useState, useEffect, useRef } from "react";
-import { Plus, Edit2, Trash2, X, CheckCircle, Layers, ToggleLeft, ToggleRight, ChevronRight, Tag, Package, Upload, Image as ImageIcon, Download, RefreshCw } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Plus, Edit2, Trash2, X, CheckCircle, Layers, ToggleLeft, ToggleRight, ChevronRight, Tag, Package, Download, RefreshCw } from "lucide-react";
 import { ADMIN_COLORS } from "../../utils/colors";
 import { useAsync } from "../../hooks/useAsync";
 import { getProductCategories, createProductCategory, updateProductCategory, deleteProductCategory, getProducts } from "../../api/admin";
 import type { AdminCategoriesResponse } from "../../api/admin";
 import LoadingState from "../../components/ui/LoadingState";
-import { uploadImage } from "../../utils/uploadImage";
 
 type CategoryForm = {
   name: string;
@@ -27,10 +26,6 @@ export default function CategoriesPage() {
   const [loading, setLoading] = useState(false);
   const [productCounts, setProductCounts] = useState<Record<string, number>>({});
   const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [uploadingImage, setUploadingImage] = useState(false);
-  const [showCanvas, setShowCanvas] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   // Fetch categories from backend
   const { data: categoriesData, loading: categoriesLoading, refetch: refetchCategories } = useAsync<AdminCategoriesResponse>(
@@ -95,7 +90,6 @@ export default function CategoriesPage() {
     setShowForm(true); 
     setSaved(false); 
     setImagePreview(null);
-    setShowCanvas(false);
   };
   
   const openEdit = (c: any) => {
@@ -104,125 +98,7 @@ export default function CategoriesPage() {
     setShowForm(true); 
     setSaved(false);
     setImagePreview(c.image || null);
-    setShowCanvas(false);
   };
-
-  // Handle image file upload
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (!file.type.startsWith('image/')) {
-      alert('Please select a valid image file');
-      return;
-    }
-
-    if (file.size > 5 * 1024 * 1024) {
-      alert('Image size must be less than 5MB');
-      return;
-    }
-
-    try {
-      setUploadingImage(true);
-
-      // Show local preview immediately
-      const reader = new FileReader();
-      reader.onloadend = () => setImagePreview(reader.result as string);
-      reader.readAsDataURL(file);
-
-      // Upload to Firebase Storage
-      const imageUrl = await uploadImage(file, 'categories');
-      setForm(prev => ({ ...prev, image: imageUrl }));
-      setImagePreview(imageUrl);
-    } catch (error) {
-      console.error('Image upload failed:', error);
-      alert('Failed to upload image. Please try again.');
-      setImagePreview(null);
-    } finally {
-      setUploadingImage(false);
-    }
-  };
-
-  // Open canvas editor
-  const openCanvasEditor = () => {
-    setShowCanvas(true);
-  };
-
-  // Save canvas as base64 — no backend needed
-  const saveCanvasImage = () => {
-    if (!canvasRef.current) return;
-    const dataUrl = canvasRef.current.toDataURL('image/png');
-    setForm(prev => ({ ...prev, image: dataUrl }));
-    setImagePreview(dataUrl);
-    setShowCanvas(false);
-  };
-
-  // Canvas drawing functionality
-  useEffect(() => {
-    if (!showCanvas || !canvasRef.current) return;
-
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    // Initialize canvas with white background
-    canvas.width = 500;
-    canvas.height = 400;
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    // Restore existing image if any
-    if (imagePreview) {
-      const img = new Image();
-      img.onload = () => ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      img.src = imagePreview;
-    }
-
-    let isDrawing = false;
-    let lastX = 0;
-    let lastY = 0;
-
-    const startDrawing = (e: MouseEvent) => {
-      isDrawing = true;
-      [lastX, lastY] = [e.offsetX, e.offsetY];
-    };
-
-    const draw = (e: MouseEvent) => {
-      if (!isDrawing) return;
-
-      const isEraser = (canvas as any)._eraser === true;
-      const color = (canvas as any)._brushColor || '#000000';
-      const size = (canvas as any)._brushSize || 4;
-
-      ctx.strokeStyle = isEraser ? '#ffffff' : color;
-      ctx.lineWidth = isEraser ? size * 3 : size;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-      
-      ctx.beginPath();
-      ctx.moveTo(lastX, lastY);
-      ctx.lineTo(e.offsetX, e.offsetY);
-      ctx.stroke();
-      
-      [lastX, lastY] = [e.offsetX, e.offsetY];
-    };
-
-    const stopDrawing = () => {
-      isDrawing = false;
-    };
-
-    canvas.addEventListener('mousedown', startDrawing);
-    canvas.addEventListener('mousemove', draw);
-    canvas.addEventListener('mouseup', stopDrawing);
-    canvas.addEventListener('mouseout', stopDrawing);
-
-    return () => {
-      canvas.removeEventListener('mousedown', startDrawing);
-      canvas.removeEventListener('mousemove', draw);
-      canvas.removeEventListener('mouseup', stopDrawing);
-      canvas.removeEventListener('mouseout', stopDrawing);
-    };
-  }, [showCanvas]);
 
   const save = async () => {
     if (!form.name) {
@@ -231,9 +107,8 @@ export default function CategoriesPage() {
     }
     const slug = form.slug || form.name.toLowerCase().replace(/\s+/g, "-");
 
-    // Strip base64 images from payload — backend can't handle large payloads
-    const safeImage = form.image && form.image.startsWith('http') ? form.image : '';
-    const safeForm = { ...form, slug, image: safeImage };
+    // Send image if available — http URL preferred, base64 as fallback
+    const safeForm = { ...form, slug };
 
     try {
       setLoading(true);
@@ -516,74 +391,36 @@ export default function CategoriesPage() {
                   </div>
                 ))}
                 
-                {/* Image Upload Section */}
+                {/* Image URL field */}
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-2 uppercase tracking-wide">Category Image</label>
-                  
-                  {/* Image Preview */}
+                  <label className="block text-xs font-bold text-gray-700 mb-2 uppercase tracking-wide">Image URL</label>
+                  <input
+                    type="text"
+                    placeholder="https://example.com/image.jpg"
+                    value={form.image}
+                    onChange={e => {
+                      setForm(p => ({ ...p, image: e.target.value }));
+                      setImagePreview(e.target.value || null);
+                    }}
+                    className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-gray-900 transition"
+                  />
                   {imagePreview && (
-                    <div className="mb-3 relative">
-                      <img 
-                        src={imagePreview} 
-                        alt="Preview" 
-                        className="w-full h-48 object-cover rounded-xl border border-gray-200"
+                    <div className="mt-2 relative rounded-xl overflow-hidden border border-gray-100" style={{ height: '100px' }}>
+                      <img
+                        src={imagePreview}
+                        alt="Preview"
+                        className="w-full h-full object-cover"
+                        onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
                       />
                       <button
-                        onClick={() => {
-                          setImagePreview(null);
-                          setForm(prev => ({ ...prev, image: '' }));
-                        }}
-                        className="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-lg hover:bg-red-600 transition"
+                        type="button"
+                        onClick={() => { setImagePreview(null); setForm(p => ({ ...p, image: '' })); }}
+                        className="absolute top-1.5 right-1.5 p-1 bg-red-500 text-white rounded-lg hover:bg-red-600 transition"
                       >
-                        <X size={14} />
+                        <X size={11} />
                       </button>
                     </div>
                   )}
-                  
-                  {/* Upload Buttons */}
-                  <div className="flex gap-2">
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/*"
-                      onChange={handleImageUpload}
-                      className="hidden"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={uploadingImage}
-                      className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition disabled:opacity-50"
-                    >
-                      <Upload size={14} />
-                      {uploadingImage ? 'Uploading...' : 'Upload Image'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={openCanvasEditor}
-                      disabled={uploadingImage}
-                      className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition disabled:opacity-50"
-                    >
-                      <ImageIcon size={14} />
-                      Draw Image
-                    </button>
-                  </div>
-                  
-                  {/* Or manual URL input */}
-                  <div className="mt-2">
-                    <input 
-                      type="text"
-                      placeholder="Or paste image URL"
-                      value={form.image}
-                      onChange={e => {
-                        setForm(p => ({ ...p, image: e.target.value }));
-                        if (e.target.value) {
-                          setImagePreview(e.target.value);
-                        }
-                      }}
-                      className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-gray-900 transition" 
-                    />
-                  </div>
                 </div>
                 
                 <div>
@@ -610,125 +447,6 @@ export default function CategoriesPage() {
                 </div>
               </div>
             )}
-          </div>
-        </div>
-      )}
-
-      {/* Canvas Editor Modal */}
-      {showCanvas && (
-        <div className="admin-modal-overlay">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-2xl shadow-2xl border border-gray-100">
-            <div className="flex items-center justify-between mb-5">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg flex items-center justify-center" 
-                  style={{ backgroundColor: ADMIN_COLORS.accentLight + "20" }}>
-                  <ImageIcon size={14} style={{ color: ADMIN_COLORS.accent }} />
-                </div>
-                <h2 className="font-bold text-gray-900">Draw Category Image</h2>
-              </div>
-              <button onClick={() => setShowCanvas(false)} 
-                className="p-1.5 rounded-lg hover:bg-gray-100 transition">
-                <X size={18} className="text-gray-400" />
-              </button>
-            </div>
-            
-            <div className="space-y-4">
-              {/* Canvas */}
-              <div className="flex justify-center bg-gray-50 rounded-xl p-2">
-                <canvas
-                  ref={canvasRef}
-                  className="border-2 border-gray-300 rounded-xl cursor-crosshair"
-                  style={{ maxWidth: '100%', height: 'auto' }}
-                />
-              </div>
-
-              {/* Canvas Toolbar */}
-              <div className="flex items-center gap-3 flex-wrap bg-gray-50 rounded-xl p-3">
-                {/* Brush color */}
-                <div className="flex items-center gap-2">
-                  <label className="text-xs font-semibold text-gray-600">Color</label>
-                  <input
-                    type="color"
-                    defaultValue="#000000"
-                    className="w-8 h-8 rounded cursor-pointer border border-gray-200"
-                    onChange={(e) => {
-                      if (canvasRef.current) (canvasRef.current as any)._brushColor = e.target.value;
-                    }}
-                  />
-                </div>
-
-                {/* Brush size */}
-                <div className="flex items-center gap-2">
-                  <label className="text-xs font-semibold text-gray-600">Size</label>
-                  <input
-                    type="range"
-                    min="1"
-                    max="30"
-                    defaultValue="4"
-                    className="w-24"
-                    onChange={(e) => {
-                      if (canvasRef.current) (canvasRef.current as any)._brushSize = Number(e.target.value);
-                    }}
-                  />
-                </div>
-
-                {/* Eraser toggle */}
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    if (!canvasRef.current) return;
-                    const canvas = canvasRef.current as any;
-                    canvas._eraser = !canvas._eraser;
-                    const btn = e.currentTarget;
-                    btn.textContent = canvas._eraser ? '✏️ Draw' : '🧹 Eraser';
-                    btn.classList.toggle('bg-yellow-100', canvas._eraser);
-                    btn.classList.toggle('border-yellow-300', canvas._eraser);
-                  }}
-                  className="px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition"
-                >
-                  🧹 Eraser
-                </button>
-
-                {/* Clear */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!canvasRef.current) return;
-                    const ctx = canvasRef.current.getContext('2d');
-                    if (ctx) {
-                      ctx.fillStyle = '#ffffff';
-                      ctx.fillRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-                    }
-                  }}
-                  className="px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-semibold text-gray-600 hover:bg-gray-50 transition"
-                >
-                  🗑️ Clear
-                </button>
-              </div>
-
-              <p className="text-xs text-gray-400 text-center">
-                Click and drag to draw. No backend upload needed — image saves directly.
-              </p>
-
-              {/* Action Buttons */}
-              <div className="flex gap-3">
-                <button
-                  type="button"
-                  onClick={() => setShowCanvas(false)}
-                  className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={saveCanvasImage}
-                  className="flex-1 py-2.5 text-white text-sm font-bold rounded-xl transition hover:opacity-90"
-                  style={{ backgroundColor: ADMIN_COLORS.primary }}
-                >
-                  Use This Image
-                </button>
-              </div>
-            </div>
           </div>
         </div>
       )}
