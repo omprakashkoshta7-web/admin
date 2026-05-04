@@ -26,6 +26,12 @@ export default function PlatformPage() {
   const [selectedCity, setSelectedCity] = useState("");
   const [pauseReason, setPauseReason] = useState("");
 
+  // Read current user role from localStorage
+  const currentUser = (() => {
+    try { return JSON.parse(localStorage.getItem('admin_user') || '{}'); } catch { return {}; }
+  })();
+  const isSuperAdmin = currentUser?.role === 'super_admin';
+
   // Available cities for pause control
   const availableCities = [
     "Mumbai", "Delhi", "Bangalore", "Hyderabad", "Chennai",
@@ -170,6 +176,11 @@ export default function PlatformPage() {
   };
 
   const handleCityPause = async () => {
+    if (!isSuperAdmin) {
+      setError('Super Admin access required to manage city pause. Contact your Super Admin.');
+      return;
+    }
+
     if (!selectedCity) {
       setError('Please select a city');
       return;
@@ -315,10 +326,18 @@ export default function PlatformPage() {
             <h2 className="font-bold text-gray-900 text-lg">City-Specific Pause</h2>
           </div>
           <button
-            onClick={() => setShowCityPause(true)}
-            className="px-4 py-2 rounded-xl text-sm font-semibold transition"
-            style={{ backgroundColor: ADMIN_COLORS.primary, color: "white" }}
+            onClick={() => {
+              if (!isSuperAdmin) {
+                setError('Super Admin access required to manage city pause.');
+                return;
+              }
+              setShowCityPause(true);
+            }}
+            className="px-4 py-2 rounded-xl text-sm font-semibold transition flex items-center gap-2"
+            style={{ backgroundColor: isSuperAdmin ? ADMIN_COLORS.primary : "#9ca3af", color: "white" }}
+            title={!isSuperAdmin ? "Super Admin access required" : ""}
           >
+            {!isSuperAdmin && <Shield size={13} />}
             Manage Cities
           </button>
         </div>
@@ -373,13 +392,21 @@ export default function PlatformPage() {
                           View
                         </button>
                         <button
-                          onClick={() => { setSelectedCity(city); setPauseReason(""); setShowCityPause(true); }}
-                          className="text-xs px-2.5 py-1.5 rounded-lg font-semibold transition"
-                          style={{
-                            backgroundColor: isPaused ? ADMIN_COLORS.successBg : ADMIN_COLORS.warningBg,
-                            color: isPaused ? ADMIN_COLORS.success : ADMIN_COLORS.warning
+                          onClick={() => { 
+                            if (!isSuperAdmin) {
+                              setError('Super Admin access required to manage city pause.');
+                              return;
+                            }
+                            setSelectedCity(city); setPauseReason(""); setShowCityPause(true); 
                           }}
+                          className="text-xs px-2.5 py-1.5 rounded-lg font-semibold transition flex items-center gap-1"
+                          style={{
+                            backgroundColor: !isSuperAdmin ? "#f3f4f6" : isPaused ? ADMIN_COLORS.successBg : ADMIN_COLORS.warningBg,
+                            color: !isSuperAdmin ? "#9ca3af" : isPaused ? ADMIN_COLORS.success : ADMIN_COLORS.warning
+                          }}
+                          title={!isSuperAdmin ? "Super Admin access required" : ""}
                         >
+                          {!isSuperAdmin && <Shield size={10} />}
                           {isPaused ? "Resume" : "Pause"}
                         </button>
                       </div>
@@ -627,9 +654,19 @@ export default function PlatformPage() {
               </button>
               <button
                 onClick={() => { setViewCityModal(null); setSelectedCity(viewCityModal); setPauseReason(""); setShowCityPause(true); }}
-                className="flex-1 py-2.5 text-white text-sm font-bold rounded-xl transition"
-                style={{ backgroundColor: cityPause[viewCityModal] ? ADMIN_COLORS.success : ADMIN_COLORS.warning }}
+                className="flex-1 py-2.5 text-white text-sm font-bold rounded-xl transition flex items-center justify-center gap-2"
+                style={{ backgroundColor: isSuperAdmin ? (cityPause[viewCityModal] ? ADMIN_COLORS.success : ADMIN_COLORS.warning) : "#9ca3af" }}
+                title={!isSuperAdmin ? "Super Admin access required" : ""}
+                onClick={() => {
+                  if (!isSuperAdmin) {
+                    setViewCityModal(null);
+                    setError('Super Admin access required to manage city pause.');
+                    return;
+                  }
+                  setViewCityModal(null); setSelectedCity(viewCityModal); setPauseReason(""); setShowCityPause(true);
+                }}
               >
+                {!isSuperAdmin && <Shield size={13} />}
                 {cityPause[viewCityModal] ? "Resume City" : "Pause City"}
               </button>
             </div>
