@@ -641,7 +641,13 @@ const TicketDashboardPage = () => {
                 className="w-full p-3 rounded-xl border border-gray-200 focus:outline-none focus:border-gray-900 transition text-sm"
               >
                 <option value="">Select staff member...</option>
-                {staff.map((s: any) => (
+                {staff
+                  .filter((s: any) => {
+                    const role = (s.role || s.staffProfile?.role || "").toLowerCase();
+                    const team = (s.team || s.staffProfile?.team || "").toLowerCase();
+                    return role.includes("support") || team.includes("support");
+                  })
+                  .map((s: any) => (
                   <option key={s._id || s.id} value={s._id || s.id}>{s.name || s.email}</option>
                 ))}
               </select>
