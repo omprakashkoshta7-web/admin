@@ -66,7 +66,7 @@ export type AdminSessionListResponse = {
 };
 
 export const loginAdmin = async (email: string, password: string): Promise<AdminLoginResponse> => {
-  const response = await request<AdminLoginResponse>('/auth/login', {
+  const response = await request<AdminLoginResponse>('/staff/auth/login', {
     method: 'POST',
     body: JSON.stringify({ email, password }),
   });

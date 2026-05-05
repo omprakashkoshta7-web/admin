@@ -2,9 +2,16 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App'
+import { printDiagnostics } from './utils/diagnostics'
 
 // Add error handling for development
 const rootElement = document.getElementById('root');
+
+// Run diagnostics in development
+if (import.meta.env.DEV) {
+  console.log('💡 Admin Portal loaded. Run printDiagnostics() in console to check configuration.');
+  (window as any).printDiagnostics = printDiagnostics;
+}
 
 if (!rootElement) {
   document.body.innerHTML = `
