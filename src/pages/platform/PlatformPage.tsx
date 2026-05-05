@@ -177,7 +177,7 @@ export default function PlatformPage() {
 
   const handleCityPause = async () => {
     if (!isSuperAdmin) {
-      setError('Super Admin access required to manage city pause. Contact your Super Admin.');
+      setError('Admin access required to manage city pause. Contact your Super Admin.');
       return;
     }
     if (!selectedCity) {
@@ -333,14 +333,14 @@ export default function PlatformPage() {
           <button
             onClick={() => {
               if (!isSuperAdmin) {
-                setError('Super Admin access required to manage city pause.');
+                setError('Admin access required to manage city pause.');
                 return;
               }
               setShowCityPause(true);
             }}
             className="px-4 py-2 rounded-xl text-sm font-semibold transition flex items-center gap-2"
             style={{ backgroundColor: isSuperAdmin ? ADMIN_COLORS.primary : "#9ca3af", color: "white" }}
-            title={!isSuperAdmin ? "Super Admin access required" : ""}
+            title={!isSuperAdmin ? "Admin access required" : ""}
           >
             {!isSuperAdmin && <Shield size={13} />}
             Manage Cities
