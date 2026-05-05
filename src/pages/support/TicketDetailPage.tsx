@@ -158,8 +158,29 @@ export default function TicketDetailPage() {
                 <User size={16} className="text-gray-400 mt-0.5" />
                 <div>
                   <p className="text-xs text-gray-500 font-semibold">Customer</p>
-                  <p className="text-sm font-bold text-gray-900">{ticket.userId || "—"}</p>
-                  <p className="text-xs text-gray-500">{ticket.email || ""}</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <div
+                      className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 overflow-hidden"
+                      style={{
+                        background: 'linear-gradient(135deg, #6d5dfc 0%, #5b4df7 100%)',
+                      }}
+                    >
+                      {(ticket as any)?.customerImage || (ticket as any)?.profileImage || (ticket as any)?.avatar ? (
+                        <img
+                          src={(ticket as any)?.customerImage || (ticket as any)?.profileImage || (ticket as any)?.avatar}
+                          alt="Customer"
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                        />
+                      ) : (
+                        (ticket.userId || 'C').charAt(0).toUpperCase()
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-gray-900">{ticket.userId || "—"}</p>
+                      <p className="text-xs text-gray-500">{ticket.email || ""}</p>
+                    </div>
+                  </div>
                 </div>
               </div>
               <div className="flex items-start gap-3">
