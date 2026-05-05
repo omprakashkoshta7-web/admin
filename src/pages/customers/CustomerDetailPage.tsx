@@ -117,9 +117,9 @@ const CustomerDetailPage = () => {
               fontSize: '1.5rem',
               overflow: 'hidden'
             }}>
-              {(customerData as any)?.profileImage || (customerData as any)?.avatar || (customerData as any)?.image ? (
+              {(customerData as any)?.photoURL || (customerData as any)?.profileImage || (customerData as any)?.avatar || (customerData as any)?.image ? (
                 <img 
-                  src={(customerData as any)?.profileImage || (customerData as any)?.avatar || (customerData as any)?.image} 
+                  src={(customerData as any)?.photoURL || (customerData as any)?.profileImage || (customerData as any)?.avatar || (customerData as any)?.image} 
                   alt={customerData.name}
                   style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                   onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}

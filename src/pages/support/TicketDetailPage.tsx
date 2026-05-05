@@ -165,9 +165,9 @@ export default function TicketDetailPage() {
                         background: 'linear-gradient(135deg, #6d5dfc 0%, #5b4df7 100%)',
                       }}
                     >
-                      {(ticket as any)?.customerImage || (ticket as any)?.profileImage || (ticket as any)?.avatar ? (
+                      {(ticket as any)?.customerImage || (ticket as any)?.photoURL || (ticket as any)?.profileImage || (ticket as any)?.avatar ? (
                         <img
-                          src={(ticket as any)?.customerImage || (ticket as any)?.profileImage || (ticket as any)?.avatar}
+                          src={(ticket as any)?.customerImage || (ticket as any)?.photoURL || (ticket as any)?.profileImage || (ticket as any)?.avatar}
                           alt="Customer"
                           style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                           onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
