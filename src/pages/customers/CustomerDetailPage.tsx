@@ -114,9 +114,19 @@ const CustomerDetailPage = () => {
               justifyContent: 'center', 
               color: 'white', 
               fontWeight: '800', 
-              fontSize: '1.5rem' 
+              fontSize: '1.5rem',
+              overflow: 'hidden'
             }}>
-              {customerData.name.charAt(0)}
+              {(customerData as any)?.profileImage || (customerData as any)?.avatar || (customerData as any)?.image ? (
+                <img 
+                  src={(customerData as any)?.profileImage || (customerData as any)?.avatar || (customerData as any)?.image} 
+                  alt={customerData.name}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                />
+              ) : (
+                customerData.name.charAt(0)
+              )}
             </div>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
