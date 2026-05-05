@@ -214,6 +214,36 @@ export default function TicketDetailPage() {
                 <p className="text-sm text-gray-700 leading-relaxed">{ticket.description}</p>
               </div>
             )}
+
+            {/* Ticket Attachments */}
+            {ticket.attachments && ticket.attachments.length > 0 && (
+              <div className="mt-5 pt-5 border-t border-gray-100">
+                <p className="text-xs text-gray-500 font-semibold uppercase mb-3">Attachments ({ticket.attachments.length})</p>
+                <div className="grid grid-cols-3 gap-3">
+                  {ticket.attachments.map((attachment: string, idx: number) => (
+                    <a
+                      key={idx}
+                      href={attachment}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="relative group rounded-lg overflow-hidden border border-gray-200 hover:border-gray-400 transition"
+                    >
+                      <img
+                        src={attachment}
+                        alt={`Attachment ${idx + 1}`}
+                        className="w-full h-32 object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"%3E%3Crect fill="%23f3f4f6" width="100" height="100"/%3E%3Ctext x="50" y="50" text-anchor="middle" dy=".3em" fill="%239ca3af" font-size="12"%3EImage%3C/text%3E%3C/svg%3E';
+                        }}
+                      />
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition flex items-center justify-center">
+                        <span className="text-white text-xs font-bold opacity-0 group-hover:opacity-100 transition">View</span>
+                      </div>
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Messages — API 6 */}
@@ -249,6 +279,36 @@ export default function TicketDetailPage() {
                         <p className="text-xs text-gray-400">{msg.createdAt ? new Date(msg.createdAt).toLocaleString() : ""}</p>
                       </div>
                       <p className="text-sm text-gray-700">{msg.message}</p>
+                      
+                      {/* Attachments from reply */}
+                      {msg.attachments && msg.attachments.length > 0 && (
+                        <div className="mt-3 pt-3 border-t border-gray-200">
+                          <p className="text-xs font-semibold text-gray-500 mb-2">Attachments ({msg.attachments.length})</p>
+                          <div className="grid grid-cols-2 gap-2">
+                            {msg.attachments.map((attachment: string, attIdx: number) => (
+                              <a
+                                key={attIdx}
+                                href={attachment}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="relative group rounded-lg overflow-hidden border border-gray-200 hover:border-gray-400 transition"
+                              >
+                                <img
+                                  src={attachment}
+                                  alt={`Attachment ${attIdx + 1}`}
+                                  className="w-full h-24 object-cover"
+                                  onError={(e) => {
+                                    (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"%3E%3Crect fill="%23f3f4f6" width="100" height="100"/%3E%3Ctext x="50" y="50" text-anchor="middle" dy=".3em" fill="%239ca3af" font-size="12"%3EImage%3C/text%3E%3C/svg%3E';
+                                  }}
+                                />
+                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition flex items-center justify-center">
+                                  <span className="text-white text-xs font-bold opacity-0 group-hover:opacity-100 transition">View</span>
+                                </div>
+                              </a>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   );
                 })
