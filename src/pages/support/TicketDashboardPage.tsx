@@ -17,30 +17,34 @@ import AdminMetricCard from "../../components/ui/AdminMetricCard";
 import AnimatedCount from "../../components/ui/AnimatedCount"; 
  
 type Tab = "tickets" | "agents"; 
-const API_ROOT = String(import.meta.env.VITE_API_BASE_URL || "http://localhost:4000/api").replace(/\/api\/?$/i, ""); 
  
-function getAttachmentUrl(attachment: any) { 
-  if (!attachment) return ""; 
+const API_ROOT = (() => { 
+  const configuredBase = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000/api"; 
+  return configuredBase.endsWith("/api") ? configuredBase.slice(0, -4) : configuredBase; 
+})(); 
  
-  const raw = 
-    typeof attachment === "string" 
-      ? attachment 
-      : attachment.url || 
-        attachment.fileUrl || 
-        attachment.secureUrl || 
-        attachment.location || 
-        attachment.path || 
-        attachment.src || 
-        attachment.href || 
-        ""; 
- 
-  const value = String(raw || "").trim(); 
-  if (!value) return ""; 
-  if (/^(https?:|data:|blob:)/i.test(value)) return value; 
-  if (value.startsWith("/api/")) return `${API_ROOT}${value.replace(/^\/api/i, "")}`; 
-  if (value.startsWith("/")) return `${API_ROOT}${value}`; 
-  return `${API_ROOT}/${value}`; 
-} 
+const getAttachmentUrl = (attachment: any): string | null => { 
+  if (!attachment) return null; 
+  if (typeof attachment === "string") { 
+    if (/^https?:\/\//i.test(attachment)) return attachment; 
+    if (attachment.startsWith("/api/")) return attachment.replace(/\/api\//, "/"); 
+    if (attachment.startsWith("/")) return `${API_ROOT}${attachment}`; 
+    return `${API_ROOT}/${attachment.replace(/^\/+/, "")}`; 
+  } 
+  if (typeof attachment === "object") { 
+    return ( 
+      attachment.url || 
+      attachment.fileUrl || 
+      attachment.secureUrl || 
+      attachment.location || 
+      attachment.path || 
+      attachment.src || 
+      attachment.href || 
+      null 
+    ); 
+  } 
+  return null; 
+}; 
  
 const TicketDashboardPage = () => { 
   const [activeTab, setActiveTab] = useState<Tab>("tickets"); 
